@@ -25,6 +25,8 @@
        (str/split-lines)
        (map parse-line)))
 
+;;; Part 1 ;;;
+
 (def constraints {:red 12 :green 13 :blue 14})
 
 (defn possible-round?
@@ -38,3 +40,15 @@
      (map :game/id)
      (apply +))
 ;; => 2237
+
+;;; Part 2 ;;;
+
+(->> input
+     parse
+     (map (fn [{:game/keys [rounds] :as game}]
+            (assoc game :game/maxes (apply merge-with max rounds))))
+     (map :game/maxes)
+     (map vals)
+     (map #(apply * %))
+     (apply +))
+;; => 66681
