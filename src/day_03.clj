@@ -8,12 +8,8 @@
 
 (defn parse
   [s]
-  (let [lines  (str/split-lines s)
-        height (count lines)
-        width  (count (first lines))]
-    {:grid/width  width
-     :grid/height height
-     :grid/coords (for [[line i] (map vector lines (range))
+  (let [lines  (str/split-lines s)]
+    {:grid/coords (for [[line i] (map vector lines (range))
                         [sym j]  (map vector line (range))]
                     [[i j] sym])}))
 
@@ -29,6 +25,7 @@
   (reduce (fn [grid [coords x]]
                (cond
                  (= \. x)                  (assoc-in grid [:grid/blanks coords] x)
+                 (= \* x)                  (assoc-in grid [:grid/stars coords] x)
                  (contains? digit-chars x) (assoc-in grid [:grid/nums coords] x)
                  :else                     (assoc-in grid [:grid/syms coords] x)))
           grid
@@ -48,12 +45,13 @@
                       :num    (->> num-group (map second) (apply str) read-string)})))))
 
 (defn filter-nums-with-adjacent-syms
-  [{:grid/keys [syms potential-partnumbers] :as _grid}]
-  (filter (fn [{:keys [coords _num]}]
-            (some (fn [coords]
-                    (some #(contains? syms %) (coords-around coords)))
-                  coords))
-          potential-partnumbers))
+  [{:grid/keys [syms stars potential-partnumbers] :as _grid}]
+  (let [syms (merge syms stars)]
+    (filter (fn [{:keys [coords _num]}]
+              (some (fn [coords]
+                      (some #(contains? syms %) (coords-around coords)))
+                    coords))
+            potential-partnumbers)))
 
 (-> input
       parse
@@ -62,3 +60,36 @@
       filter-nums-with-adjacent-syms
       (->> (map :num)
            (apply +)))
+;; => 512794
+
+;;; Part 2 ;;;
+
+(defn find-real-partumbers
+  [grid]
+  (assoc grid :grid/partnumbers (filter-nums-with-adjacent-syms grid)))
+
+(defn find-gears
+  [{:grid/keys [partnumbers stars] :as grid}]
+  (assoc grid :grid/gears
+         (keep (fn [[coords _]]
+                 (let [adj-coords      (coords-around coords)
+                       partnums-around (filter (fn [{:keys [coords _num]}]
+                                                 (some coords adj-coords))
+                                               partnumbers)]
+                   (when (= 2 (count partnums-around))
+                     {:coords   coords
+                      :partnums partnums-around})))
+               stars)))
+
+(-> input
+      parse
+      classify-coords
+      find-potential-partnumbers
+      find-real-partumbers
+      find-gears
+      :grid/gears
+      (->> (map :partnums)
+           (map (fn [pns] (map :num pns)))
+           (map #(apply * %))
+           (apply +)))
+;; => 67779080
